@@ -1,4 +1,5 @@
 import os
+import paramiko
 from flask import Flask, jsonify, render_template_string, request, redirect, url_for
 from flask_cors import CORS
 
@@ -70,8 +71,11 @@ def reboot_system():
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
     try:
         print("Reboot command received via web interface")
-        print("Rebooting Impulse...")
-        os.system("sudo reboot")
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect('impulse-reboot.duckdns.org', username='impulse', password='your-password', timeout=10)
+        stdin, stdout, stderr = ssh.exec_command('sudo reboot')
+        ssh.close()
         return jsonify({'success': True, 'message': 'Reboot initiated'})
     except Exception as e:
         print(f"Error during reboot: {e}")
