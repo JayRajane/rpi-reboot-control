@@ -1,0 +1,77 @@
+import os
+from flask import Flask, jsonify, render_template_string
+from flask_cors import CORS
+
+# Flask setup
+app = Flask(__name__)
+CORS(app)  # Enable CORS to allow access from other devices
+
+# Flask API and web GUI
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Impulse Reboot Control</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+        h1 { font-size: 24px; }
+        button { font-size: 18px; padding: 15px 30px; margin: 10px; cursor: pointer;
+                 background-color: #dc3545; color: white; border: none; border-radius: 5px; }
+        button:hover { background-color: #c82333; }
+        .warning { color: #dc3545; font-weight: bold; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <h1>Impulse Reboot Control</h1>
+    <p class="warning">⚠️ Warning: This will immediately reboot Impulse!</p>
+    <button onclick="rebootSystem()">Reboot Impulse</button>
+
+    <script>
+        async function rebootSystem() {
+            if (confirm('Are you sure you want to reboot Impulse? This will disconnect all users.')) {
+                try {
+                    const response = await fetch('/api/reboot', { method: 'POST' });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        alert('Reboot command sent! Impulse will restart shortly.');
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                } catch (error) {
+                    // Expected as the server goes down during reboot
+                    alert('Reboot initiated! Impulse is restarting...');
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+"""
+
+@app.route('/')
+def index():
+    return render_template_string(HTML_TEMPLATE)
+
+@app.route('/api/reboot', methods=['POST'])
+def reboot_system():
+    try:
+        print("Reboot command received via web interface")
+        print("Rebooting Impulse...")
+        # Execute reboot command (works only on impulse)
+        os.system("sudo reboot")
+        return jsonify({'success': True, 'message': 'Reboot initiated'})
+    except Exception as e:
+        print(f"Error during reboot: {e}")
+        return jsonify({'success': False, 'message': str(e)})
+
+# Run Flask server
+if __name__ == '__main__':
+    try:
+        print("Starting Impulse Web Reboot Control Server...")
+        print("Access the web interface at: http://impulse.local:5000")
+        app.run(host='0.0.0.0', port=5000, debug=False)
+    except KeyboardInterrupt:
+        print("\nServer stopped by user")
+    except Exception as e:
+        print(f"Server error: {e}")
