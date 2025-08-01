@@ -1,10 +1,16 @@
 import os
-from flask import Flask, jsonify, render_template_string
+from flask import Flask, jsonify, render_template_string, request, redirect, url_for
 from flask_cors import CORS
 
 # Flask setup
 app = Flask(__name__)
-CORS(app)  # Enable CORS to allow access from other devices
+CORS(app)
+
+# Basic authentication
+def check_auth():
+    if request.authorization and request.authorization.username == 'admin' and request.authorization.password == 'secret':
+        return True
+    return False
 
 # Flask API and web GUI
 HTML_TEMPLATE = """
@@ -30,16 +36,19 @@ HTML_TEMPLATE = """
         async function rebootSystem() {
             if (confirm('Are you sure you want to reboot Impulse? This will disconnect all users.')) {
                 try {
-                    const response = await fetch('/api/reboot', { method: 'POST' });
+                    const response = await fetch('/api/reboot', { 
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Basic ' + btoa('admin:secret')
+                        }
+                    });
                     const data = await response.json();
-
                     if (data.success) {
                         alert('Reboot command sent! Impulse will restart shortly.');
                     } else {
                         alert('Error: ' + data.message);
                     }
                 } catch (error) {
-                    // Expected as the server goes down during reboot
                     alert('Reboot initiated! Impulse is restarting...');
                 }
             }
@@ -51,21 +60,23 @@ HTML_TEMPLATE = """
 
 @app.route('/')
 def index():
+    if not check_auth():
+        return 'Please provide username and password', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'}
     return render_template_string(HTML_TEMPLATE)
 
 @app.route('/api/reboot', methods=['POST'])
 def reboot_system():
+    if not check_auth():
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
     try:
         print("Reboot command received via web interface")
         print("Rebooting Impulse...")
-        # Execute reboot command (works only on impulse)
         os.system("sudo reboot")
         return jsonify({'success': True, 'message': 'Reboot initiated'})
     except Exception as e:
         print(f"Error during reboot: {e}")
         return jsonify({'success': False, 'message': str(e)})
 
-# Run Flask server
 if __name__ == '__main__':
     try:
         print("Starting Impulse Web Reboot Control Server...")
